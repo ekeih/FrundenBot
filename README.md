@@ -1,0 +1,2 @@
+# FrundenBot
+Watch your Freitagsrunde!
