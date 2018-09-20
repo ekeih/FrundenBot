@@ -61,7 +61,6 @@ def __log_incomming_messages(bot, update):
         logger.info('In:  %s: %s' % (target_chat, update.message.text))
 
 
-
 def refresh_cache(bot, job):
     global cache
     try:
