@@ -27,6 +27,8 @@ from emoji import emojize
 from telegram import InlineQueryResultArticle, InputTextMessageContent
 from telegram.ext import CommandHandler, Filters, InlineQueryHandler, RegexHandler, MessageHandler, Updater
 
+cache = emojize('Sorry, ich weiß es nicht! :confused:', use_aliases=True)
+
 logging.getLogger('JobQueue').setLevel(logging.INFO)
 logging.getLogger('telegram').setLevel(logging.INFO)
 logging.getLogger('requests').setLevel(logging.INFO)
@@ -59,33 +61,19 @@ def __log_incomming_messages(bot, update):
         logger.info('In:  %s: %s' % (target_chat, update.message.text))
 
 
-def write_cache(value):
-    with open('cache', 'w') as cache:
-        cache.write(value)
-
 
 def refresh_cache(bot, job):
+    global cache
     try:
         logger.info('Refresh cache')
         r = requests.get('https://watchyour.freitagsrunde.org')
         r.raise_for_status()
         if 'Wir sind fuer dich da!' in r.text:
-            write_cache(':white_check_mark: Die Freitagsrunde ist offen!')
+            cache = emojize(':white_check_mark: Die Freitagsrunde ist offen!', use_aliases=True)
         else:
-            write_cache(':red_circle: Leider haben wir gerade zu.')
+            cache = emojize(':red_circle: Leider haben wir gerade zu.', use_aliases=True)
     except Exception as e:
         logger.error(e)
-
-
-def default_reply():
-    try:
-        with open('cache', 'r') as cache:
-            reply = cache.read()
-            logger.debug(reply)
-            return emojize(reply, use_aliases=True)
-    except Exception as ex:
-        logger.error(ex)
-        return emojize('Sorry, ich weiß es nicht! :confused:', use_aliases=True)
 
 
 def start(bot, update):
@@ -93,6 +81,7 @@ def start(bot, update):
 
 
 def inline(bot, update):
+    global cache
     query = update.inline_query.query
     if not query:
         return
@@ -101,7 +90,7 @@ def inline(bot, update):
         InlineQueryResultArticle(
             id = 0,
             title = 'Jemand da?',
-            input_message_content = InputTextMessageContent(default_reply())
+            input_message_content = InputTextMessageContent(cache)
         )
     )
     logger.info('Inline Query')
@@ -109,8 +98,9 @@ def inline(bot, update):
 
 
 def is_open(bot, update):
+    global cache
     __log_incomming_messages(bot,update)
-    bot.sendMessage(chat_id=update.message.chat_id, text=default_reply())
+    bot.sendMessage(chat_id=update.message.chat_id, text=cache)
 
 
 if __name__ == '__main__':
