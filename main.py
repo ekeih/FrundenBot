@@ -18,7 +18,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>. #
 #########################################################################
 
-import logging
+import logging, logging.handlers
 import os
 import requests
 import sys
@@ -27,8 +27,19 @@ from emoji import emojize
 from telegram import InlineQueryResultArticle, InputTextMessageContent
 from telegram.ext import CommandHandler, Filters, InlineQueryHandler, RegexHandler, MessageHandler, Updater
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger()
+logging.getLogger('JobQueue').setLevel(logging.INFO)
+logging.getLogger('telegram').setLevel(logging.INFO)
+logging.getLogger('requests').setLevel(logging.INFO)
+
+logging_format = '[%(asctime)s: %(levelname)s/%(name)s] %(message)s'
+formatter = logging.Formatter(logging_format)
+logging.basicConfig(level=logging.INFO, format=logging_format)
+
+logger = logging.getLogger('FrundenBot')
+logger_fh = logging.handlers.TimedRotatingFileHandler('logs/frundenbot.log', when='midnight', backupCount=360)
+logger_fh.setLevel(logging.DEBUG)
+logger_fh.setFormatter(formatter)
+logger.addHandler(logger_fh)
 
 TOKEN = os.environ.get('TELEGRAM_BOT_AUTH_TOKEN')
 
@@ -48,24 +59,33 @@ def __log_incomming_messages(bot, update):
         logger.info('In:  %s: %s' % (target_chat, update.message.text))
 
 
-class Freitagsrunde:
-    def is_open(self):
+def write_cache(value):
+    with open('cache', 'w') as cache:
+        cache.write(value)
+
+
+def refresh_cache(bot, job):
+    try:
+        logger.info('Refresh cache')
         r = requests.get('https://watchyour.freitagsrunde.org')
         r.raise_for_status()
         if 'Wir sind fuer dich da!' in r.text:
-            return True
+            write_cache(':white_check_mark: Die Freitagsrunde ist offen!')
         else:
-            return False
+            write_cache(':red_circle: Leider haben wir gerade zu.')
+    except Exception as e:
+        logger.error(e)
 
-    def default_reply(self):
-        try:
-            if self.is_open():
-                return emojize(':white_check_mark: Die Freitagsrunde ist offen!', use_aliases=True)
-            else:
-                return emojize(':red_circle: Leider haben wir gerade zu.', use_aliases=True)
-        except Exception as e:
-            logger.error(e)
-            return emojize('Sorry, ich weiß es nicht! :confused:', use_aliases=True)
+
+def default_reply():
+    try:
+        with open('cache', 'r') as cache:
+            reply = cache.read()
+            logger.debug(reply)
+            return emojize(reply, use_aliases=True)
+    except Exception as ex:
+        logger.error(ex)
+        return emojize('Sorry, ich weiß es nicht! :confused:', use_aliases=True)
 
 
 def start(bot, update):
@@ -79,9 +99,9 @@ def inline(bot, update):
     results = list()
     results.append(
         InlineQueryResultArticle(
-            id = freitagsrunde.is_open(),
+            id = 0,
             title = 'Jemand da?',
-            input_message_content = InputTextMessageContent(freitagsrunde.default_reply())
+            input_message_content = InputTextMessageContent(default_reply())
         )
     )
     logger.info('Inline Query')
@@ -90,14 +110,15 @@ def inline(bot, update):
 
 def is_open(bot, update):
     __log_incomming_messages(bot,update)
-    bot.sendMessage(chat_id=update.message.chat_id, text=freitagsrunde.default_reply())
+    bot.sendMessage(chat_id=update.message.chat_id, text=default_reply())
 
 
 if __name__ == '__main__':
     updater = Updater(token=TOKEN)
     dispatcher = updater.dispatcher
+    queue = updater.job_queue
 
-    freitagsrunde = Freitagsrunde()
+    queue.run_repeating(refresh_cache, interval=60, first=0)
 
     start_handler = CommandHandler('start', start)
     inline_handler = InlineQueryHandler(inline)
