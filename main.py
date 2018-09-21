@@ -80,7 +80,6 @@ def start(bot, update):
 
 
 def inline(bot, update):
-    global cache
     query = update.inline_query.query
     if not query:
         return
@@ -97,7 +96,6 @@ def inline(bot, update):
 
 
 def is_open(bot, update):
-    global cache
     __log_incomming_messages(bot,update)
     bot.sendMessage(chat_id=update.message.chat_id, text=cache)
 
