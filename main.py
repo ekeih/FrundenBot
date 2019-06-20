@@ -22,8 +22,10 @@ import logging, logging.handlers
 import os
 import requests
 import sys
+import time
 
 from emoji import emojize
+from prometheus_client import Summary
 from telegram import InlineQueryResultArticle, InputTextMessageContent
 from telegram.ext import CommandHandler, Filters, InlineQueryHandler, RegexHandler, MessageHandler, Updater
 
