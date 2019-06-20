@@ -1,3 +1,4 @@
 emoji
+prometheus_client
 python-telegram-bot
 requests
