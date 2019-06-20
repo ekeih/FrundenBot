@@ -27,7 +27,7 @@ from emoji import emojize
 from telegram import InlineQueryResultArticle, InputTextMessageContent
 from telegram.ext import CommandHandler, Filters, InlineQueryHandler, RegexHandler, MessageHandler, Updater
 
-cache = emojize('Mist, ich weiß es nicht! :confused:', use_aliases=True)
+cache = emojize('Sorry, ich weiß es nicht! :confused:', use_aliases=True)
 
 logging.getLogger('JobQueue').setLevel(logging.INFO)
 logging.getLogger('telegram').setLevel(logging.INFO)
