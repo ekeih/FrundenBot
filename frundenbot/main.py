@@ -149,8 +149,7 @@ def set_drinks(update: Update, context: CallbackContext):
     else:
         context.bot.sendMessage(chat_id=update.message.chat_id, text=emojize(':poop: Nö :poop:', use_aliases=True))
 
-
-if __name__ == '__main__':
+def main():
     start_http_server(8000)
     updater = Updater(token=TOKEN, use_context=True)
     dispatcher = updater.dispatcher
@@ -179,3 +178,6 @@ if __name__ == '__main__':
     dispatcher.add_handler(message_handler)
 
     updater.start_polling()
+
+if __name__ == '__main__':
+    main()
