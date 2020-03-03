@@ -30,12 +30,12 @@ setup(
     url='https://github.com/ekeih/FrundenBot',
     author='Max Rosin',
     author_email='frundenbot@hackrid.de',
-    license='GPL',
+    license='AGPLv3+',
     classifiers=[
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
-        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)'
+        'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)'
     ],
     python_requires='>=3.7',
     install_requires=requirements(),
