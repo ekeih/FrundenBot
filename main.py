@@ -26,8 +26,8 @@ import time
 
 from emoji import emojize
 from prometheus_client import start_http_server, Gauge, Summary
-from telegram import InlineQueryResultArticle, InputTextMessageContent
-from telegram.ext import CommandHandler, Filters, InlineQueryHandler, RegexHandler, MessageHandler, Updater
+from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
+from telegram.ext import CallbackContext, CommandHandler, Filters, InlineQueryHandler, RegexHandler, MessageHandler, Updater
 
 cache = emojize('Sorry, ich weiß es nicht! :confused:', use_aliases=True)
 
@@ -63,7 +63,7 @@ def __log_incomming_messages(bot, update):
 CACHE_REFRESH_TIME = Summary('frunde_cache_refresh_seconds', 'Time spent refreshing cache')
 FRUNDE_OPEN = Gauge('frunde_status', '1 if Frunde is open,-1 on error, 0 otherwise')
 @CACHE_REFRESH_TIME.time()
-def refresh_cache(bot, job):
+def refresh_cache(context: CallbackContext):
     global cache
     try:
         LOGGER.debug('Refresh cache')
@@ -82,12 +82,12 @@ def refresh_cache(bot, job):
 
 START_TIME = Summary('frunde_start_seconds', 'Time spent executing /start handler')
 @START_TIME.time()
-def start(bot, update):
-    bot.sendMessage(chat_id=update.message.chat_id, text='Egal was du sagst, ich sag nur, ob die Freitagsrunde offen hat! Du kannst mich direkt anschreiben oder inline per @FrundenBot in anderen Chats benutzen.')
+def start(update: Update, context: CallbackContext):
+    context.bot.sendMessage(chat_id=update.message.chat_id, text='Egal was du sagst, ich sag nur, ob die Freitagsrunde offen hat! Du kannst mich direkt anschreiben oder inline per @FrundenBot in anderen Chats benutzen.')
 
 INLINE_TIME = Summary('frunde_inline_seconds', 'Time spent executing inline handler')
 @INLINE_TIME.time()
-def inline(bot, update):
+def inline(update: Update, context: CallbackContext):
     query = update.inline_query.query
     if not query:
         return
@@ -100,42 +100,42 @@ def inline(bot, update):
         )
     )
     LOGGER.info('Inline Query')
-    bot.answerInlineQuery(update.inline_query.id, results)
+    context.bot.answerInlineQuery(update.inline_query.id, results)
 
 OPEN_TIME = Summary('frunde_open_seconds', 'Time spent executing /open handler')
 @OPEN_TIME.time()
-def is_open(bot, update):
-    __log_incomming_messages(bot,update)
-    bot.sendMessage(chat_id=update.message.chat_id, text='{}\nÜbrigens kannst du mit /mate nachgucken, ob es noch Getränke gibt.'.format(cache))
+def is_open(update: Update, context: CallbackContext):
+    __log_incomming_messages(context.bot, update)
+    context.bot.sendMessage(chat_id=update.message.chat_id, text='{}\nÜbrigens kannst du mit /mate nachgucken, ob es noch Getränke gibt.'.format(cache))
 
 
 WHOAMI_TIME = Summary('frunde_whoami_seconds', 'Time spent executing /whoami handler')
 @WHOAMI_TIME.time()
-def whoami(bot, update):
-    __log_incomming_messages(bot,update)
-    bot.sendMessage(chat_id=update.message.chat_id, text='You are: {} ({})'.format(update.message.from_user.name, update.message.chat_id))
+def whoami(update: Update, context: CallbackContext):
+    __log_incomming_messages(context.bot, update)
+    context.bot.sendMessage(chat_id=update.message.chat_id, text='You are: {} ({})'.format(update.message.from_user.name, update.message.chat_id))
     LOGGER.info('This is: {} ({})'.format(update.message.from_user.name, update.message.chat_id))
 
 
 GET_DRINKS_TIME = Summary('frunde_get_drinks_seconds', 'Time spent executing /mate (/drinks) handler')
 @GET_DRINKS_TIME.time()
-def get_drinks(bot, update):
-    __log_incomming_messages(bot,update)
+def get_drinks(update: Update, context: CallbackContext):
+    __log_incomming_messages(context.bot, update)
     try:
         with open('/var/frunde/frunde_drinks.txt', 'r') as file:
             drinks = file.read()
     except Exception as e:
         drinks = emojize('Uhm, das weiß ich nicht. :confused:', use_aliases=True)
         LOGGER.error(e)
-    bot.sendMessage(chat_id=update.message.chat_id, text=drinks)
+    context.bot.sendMessage(chat_id=update.message.chat_id, text=drinks)
 
 
 SET_DRINKS = Summary('frunde_set_drinks_seconds', 'Time spent executing /set_mate handler')
 @SET_DRINKS.time()
-def set_drinks(bot, update, args):
-    __log_incomming_messages(bot,update)
+def set_drinks(update: Update, context: CallbackContext):
+    __log_incomming_messages(context.bot, update)
     if update.message.chat_id in LIST_OF_ADMINS:
-        mate_message = ' '.join(args)
+        mate_message = ' '.join(context.args)
         LOGGER.info('New mate message: {}'.format(mate_message))
         try:
             with open('/var/frunde/frunde_drinks.txt', 'w+') as file:
@@ -144,15 +144,15 @@ def set_drinks(bot, update, args):
         except Exception as e:
             result = emojize('Uhm, das hat nicht geklappt. :confused:', use_aliases=True)
             LOGGER.error(e)
-        bot.sendMessage(chat_id=update.message.chat_id, text=result)
-        bot.sendMessage(chat_id=ADMIN, text='Neuer Matepegel von {} ({}):\n{}'.format(update.message.from_user.name, update.message.chat_id, result))
+        context.bot.sendMessage(chat_id=update.message.chat_id, text=result)
+        context.bot.sendMessage(chat_id=ADMIN, text='Neuer Matepegel von {} ({}):\n{}'.format(update.message.from_user.name, update.message.chat_id, result))
     else:
-        bot.sendMessage(chat_id=update.message.chat_id, text=emojize(':poop: Nö :poop:', use_aliases=True))
+        context.bot.sendMessage(chat_id=update.message.chat_id, text=emojize(':poop: Nö :poop:', use_aliases=True))
 
 
 if __name__ == '__main__':
     start_http_server(8000)
-    updater = Updater(token=TOKEN)
+    updater = Updater(token=TOKEN, use_context=True)
     dispatcher = updater.dispatcher
     queue = updater.job_queue
 
@@ -165,17 +165,17 @@ if __name__ == '__main__':
     drinks_handler = CommandHandler('drinks', get_drinks)
     mate_handler = CommandHandler('mate', get_drinks)
     whoami_handler = CommandHandler('whoami', whoami)
-    set_mate_handler = CommandHandler('set_mate', set_drinks, pass_args=True)
+    set_mate_handler = CommandHandler('set_mate', set_drinks)
     message_handler = MessageHandler(Filters.text, is_open)
 
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(inline_handler)
-    dispatcher.add_handler(message_handler)
     dispatcher.add_handler(open_handler)
     dispatcher.add_handler(drinks_handler)
     dispatcher.add_handler(mate_handler)
     dispatcher.add_handler(whoami_handler)
     dispatcher.add_handler(set_mate_handler)
     dispatcher.add_handler(offen_handler)
+    dispatcher.add_handler(message_handler)
 
     updater.start_polling()
