@@ -222,14 +222,14 @@ class FrundenBot:
 
 
 @click.command()
-@click.option('--token', envvar='TOKEN', help='Telegram bot token.', required=True)
-@click.option('--refresh-interval', envvar='REFRESH_INTERVAL', default=60, help='Interval in seconds in which the bot should check if the Freitagsrunde is open.', show_default=True)
-@click.option('--s3-region-name', envvar='S3_REGION_NAME', help='Region name of the s3 bucket.')
-@click.option('--s3-bucket', envvar='S3_BUCKET', help='Name of the s3 bucket.')
-@click.option('--s3-key', envvar='S3_KEY', help='Key ID of the S3 user.')
-@click.option('--s3-secret', envvar='S3_SECRET', help='Secret of the S3 user.')
-@click.option('--file-path', envvar='FILE_PATH', default='/var/frunde/', help='Path to store local data, if S3 is not used.')
-@click.option('--metrics-port', envvar='METRICS_PORT', default=8000, help='Port to expose Prometheus metrics.', show_default=True)
+@click.option('--token', envvar='FRUNDE_TOKEN', help='Telegram bot token.', required=True)
+@click.option('--refresh-interval', envvar='FRUNDE_REFRESH_INTERVAL', default=60, help='Interval in seconds in which the bot should check if the Freitagsrunde is open.', show_default=True)
+@click.option('--s3-region-name', envvar='FRUNDE_S3_REGION_NAME', help='Region name of the s3 bucket.')
+@click.option('--s3-bucket', envvar='FRUNDE_S3_BUCKET', help='Name of the s3 bucket.')
+@click.option('--s3-key', envvar='FRUNDE_S3_KEY', help='Key ID of the S3 user.')
+@click.option('--s3-secret', envvar='FRUNDE_S3_SECRET', help='Secret of the S3 user.')
+@click.option('--file-path', envvar='FRUNDE_FILE_PATH', default='/var/frunde/', help='Path to store local data, if S3 is not used.')
+@click.option('--metrics-port', envvar='FRUNDE_METRICS_PORT', default=8000, help='Port to expose Prometheus metrics.', show_default=True)
 def cli(token, refresh_interval: int, s3_region_name: str, s3_bucket: str, s3_key: str, s3_secret: str, file_path: str, metrics_port: int):
     """
     All options are also available as environment variables, e.g. "--refresh-interval=30" can be set by "export REFRESH_INTERVAL=30".
