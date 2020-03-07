@@ -1,4 +1,6 @@
+click
 emoji
 prometheus_client
 python-telegram-bot
 requests
+telegram-click
