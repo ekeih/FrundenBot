@@ -33,6 +33,8 @@ from telegram.ext import (CallbackContext, CommandHandler, Filters,
 from telegram_click import generate_command_list
 from telegram_click.decorator import command
 
+from frundenbot.storage import Storage
+
 cache = emojize('Sorry, ich weiß es nicht! :confused:', use_aliases=True)
 
 logging.getLogger('JobQueue').setLevel(logging.INFO)
@@ -50,8 +52,9 @@ LIST_OF_ADMINS = [int(x)
 
 
 class FrundenBot:
-    def __init__(self, token, refresh_interval):
+    def __init__(self, token, refresh_interval, storage: Storage):
 
+        self.storage = storage
         self.FRUNDE_OPEN = Gauge(
             'frunde_status', '1 if Frunde is open,-1 on error, 0 otherwise')
 
@@ -144,8 +147,7 @@ class FrundenBot:
     @command(name=['mate', 'drinks'], description='Are there drinks available at the Freitagsrunde?')
     def _callback_get_drinks(self, update: Update, context: CallbackContext):
         try:
-            with open('/var/frunde/frunde_drinks.txt', 'r') as file:
-                drinks = file.read()
+            drinks = self.storage.get_mate()
         except Exception as e:
             drinks = emojize(
                 'Uhm, das weiß ich nicht. :confused:', use_aliases=True)
@@ -161,10 +163,8 @@ class FrundenBot:
             mate_message = ' '.join(context.args)
             LOGGER.info('New mate message: {}'.format(mate_message))
             try:
-                with open('/var/frunde/frunde_drinks.txt', 'w+') as file:
-                    file.write('{}\n(Aktualisiert: {})'.format(
-                        mate_message, time.strftime('%d.%m.%Y um %H:%M')))
-                    result = 'Neuer Matepegel:\n{}'.format(mate_message)
+                self.storage.set_mate('{}\n(Aktualisiert: {})'.format(mate_message, time.strftime('%d.%m.%Y um %H:%M')))
+                result = 'Neuer Matepegel:\n{}'.format(mate_message)
             except Exception as e:
                 result = emojize(
                     'Uhm, das hat nicht geklappt. :confused:', use_aliases=True)
@@ -222,12 +222,28 @@ class FrundenBot:
 
 
 @click.command()
-@click.option('--token', envvar='FRUNDE_TOKEN', help='Telegram bot token.', required=True)
-@click.option('--refresh-interval', envvar='FRUNDE_REFRESH_INTERVAL', default=60, help='Interval in seconds in which the bot should check if the Freitagsrunde is open.', show_default=True)
-@click.option('--metrics-port', envvar='FRUNDE_METRICS_PORT', default=8000, help='Port to expose Prometheus metrics.', show_default=True)
-def cli(token, refresh_interval: int, metrics_port: int):
+@click.option('--token', envvar='TOKEN', help='Telegram bot token.', required=True)
+@click.option('--refresh-interval', envvar='REFRESH_INTERVAL', default=60, help='Interval in seconds in which the bot should check if the Freitagsrunde is open.', show_default=True)
+@click.option('--s3-region-name', envvar='S3_REGION_NAME', help='Region name of the s3 bucket.')
+@click.option('--s3-bucket', envvar='S3_BUCKET', help='Name of the s3 bucket.')
+@click.option('--s3-key', envvar='S3_KEY', help='Key ID of the S3 user.')
+@click.option('--s3-secret', envvar='S3_SECRET', help='Secret of the S3 user.')
+@click.option('--file-path', envvar='FILE_PATH', default='/var/frunde/', help='Path to store local data, if S3 is not used.')
+@click.option('--metrics-port', envvar='METRICS_PORT', default=8000, help='Port to expose Prometheus metrics.', show_default=True)
+def cli(token, refresh_interval: int, s3_region_name: str, s3_bucket: str, s3_key: str, s3_secret: str, file_path: str, metrics_port: int):
     """
-    All options are also available as environment variables, e.g. "--refresh-interva=30" can be set by "export REFRESH_INTERVAL=30".
+    All options are also available as environment variables, e.g. "--refresh-interval=30" can be set by "export REFRESH_INTERVAL=30".
     """
+
+    if s3_region_name and s3_bucket and s3_key and s3_secret:
+        from frundenbot.storage import S3Storage
+        storage = S3Storage(region_name=s3_region_name, bucket=s3_bucket, key=s3_key, secret=s3_secret)
+    elif s3_region_name or s3_bucket or s3_key or s3_secret:
+        LOGGER.error('Either all S3 settings need to be specified or none.')
+        sys.exit(1)
+    else:
+        from frundenbot.storage import FileStorage
+        storage = FileStorage(path=file_path)
+
     start_http_server(metrics_port)
-    FrundenBot(token=token, refresh_interval=refresh_interval)
+    FrundenBot(token=token, refresh_interval=refresh_interval, storage=storage)
