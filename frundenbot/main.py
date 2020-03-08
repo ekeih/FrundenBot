@@ -140,7 +140,7 @@ class FrundenBot:
                           'Time spent executing /notify handler')
 
     @NOTIFY_TIME.time()
-    @command(name='notify', description='Get a notification when the Freitagsrunde opens up')
+    @command(name='notify', description='Get a notification when the Freitagsrunde opens up.')
     def _callback_notify(self, update: Update, context: CallbackContext):
         chat_id = update.effective_chat.id
         self.notifier.register(chat_id)
