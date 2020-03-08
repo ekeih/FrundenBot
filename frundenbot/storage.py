@@ -137,7 +137,7 @@ class FileStorage(Storage):
         return value.splitlines()
 
     def _read(self, path: str) -> str or None:
-        path = Path(f'{self.root_path}/{path}')
+        path = Path(f'{self.root_path}/{path}').expanduser().absolute()
         if path.exists() and path.is_file():
             with open(path, 'r') as file:
                 return file.read()
@@ -145,6 +145,7 @@ class FileStorage(Storage):
             return None
 
     def _write(self, path: str, value: str):
-        path = Path(f'{self.root_path}/{path}')
+        path = Path(f'{self.root_path}/{path}').expanduser().absolute()
+        path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, 'w+') as file:
             file.write(value)

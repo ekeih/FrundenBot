@@ -182,26 +182,27 @@ class FrundenBot:
 
     @SET_DRINKS.time()
     def _callback_set_drinks(self, update: Update, context: CallbackContext):
-        if update.message.chat_id in LIST_OF_ADMINS:
-            mate_message = ' '.join(context.args)
-            LOGGER.info('New mate message: {}'.format(mate_message))
-            try:
-                self.storage.set_mate('{}\n(Aktualisiert: {})'.format(mate_message, time.strftime('%d.%m.%Y um %H:%M')))
-                result = 'Neuer Matepegel:\n{}'.format(mate_message)
-            except Exception as e:
-                result = emojize(
-                    'Uhm, das hat nicht geklappt. :confused:', use_aliases=True)
-                LOGGER.error(e)
-            context.bot.sendMessage(
-                chat_id=update.message.chat_id, text=result)
-            for admin in LIST_OF_ADMINS:
-                context.bot.sendMessage(chat_id=admin,
-                                        text='Neuer Matepegel von {} ({}):\n{}'.format(
-                                            update.message.from_user.name,
-                                            update.message.chat_id, result))
-        else:
+        if update.message.chat_id not in LIST_OF_ADMINS:
             context.bot.sendMessage(chat_id=update.message.chat_id, text=emojize(
                 ':poop: Nö :poop:', use_aliases=True))
+            return
+
+        mate_message = ' '.join(context.args)
+        LOGGER.info('New mate message: {}'.format(mate_message))
+        try:
+            self.storage.set_mate('{}\n(Aktualisiert: {})'.format(mate_message, time.strftime('%d.%m.%Y um %H:%M')))
+            result = 'Neuer Matepegel:\n{}'.format(mate_message)
+        except Exception as e:
+            result = emojize(
+                'Uhm, das hat nicht geklappt. :confused:', use_aliases=True)
+            LOGGER.error(e)
+        context.bot.sendMessage(
+            chat_id=update.message.chat_id, text=result)
+        for admin in LIST_OF_ADMINS:
+            context.bot.sendMessage(chat_id=admin,
+                                    text='Neuer Matepegel von {} ({}):\n{}'.format(
+                                        update.message.from_user.name,
+                                        update.message.chat_id, result))
 
     INLINE_TIME = Summary('frunde_inline_seconds',
                           'Time spent executing inline handler')
