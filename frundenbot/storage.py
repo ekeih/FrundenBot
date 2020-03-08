@@ -1,29 +1,64 @@
+from pathlib import Path
+from typing import List
+
+from frundenbot import STATE_UNKNOWN
+
+
 class Storage:
     """
     Interface for the storage backend of FrundenBot to make sure that all
     storage implementations provide the same functionality.
     """
+
     def set_mate(self, text):
         """
         Store a new message that represents the current availability of drinks.
 
         :param text: New message
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
-    def get_mate(self):
+    def get_mate(self) -> str:
         """
         Get the current availability of drinks.
 
         :return: Current availability of drinks
         """
-        raise NotImplementedError
+        raise NotImplementedError()
+
+    def set_open(self, state: int):
+        """
+        Set the current "Open" state
+        :param state: new state
+        """
+        raise NotImplementedError()
+
+    def get_open(self) -> int:
+        """
+        Get the last saved "Open" state
+        """
+        raise NotImplementedError()
+
+    def set_notification_listeners(self, listeners: List[str]):
+        """
+        Set the list of chat_ids that registered for a notification
+        :param listeners: new value
+        """
+        raise NotImplementedError()
+
+    def get_notification_listeners(self) -> List[str]:
+        """
+        Get the list of chat_ids that registered for a notification
+        :return: listeners
+        """
+        raise NotImplementedError()
 
 
 class S3Storage(Storage):
     """
     Storage implementation that uses AWS S3 as a storage backend.
     """
+
     def __init__(self, region_name: str, bucket: str, key: str, secret: str):
         """
         Create a new s3 storage backend.
@@ -34,16 +69,38 @@ class S3Storage(Storage):
         :param secret: Secret access key of the key ID
         """
         import boto3
-        self.s3_client = boto3.resource('s3', region_name=region_name, aws_access_key_id=key, aws_secret_access_key=secret)
+        self.s3_client = boto3.resource('s3', region_name=region_name, aws_access_key_id=key,
+                                        aws_secret_access_key=secret)
         self.bucket = bucket
 
     def set_mate(self, text):
         obj = self.s3_client.Object(self.bucket, 'mate/status.txt')
         obj.put(Body=text)
 
-    def get_mate(self):
+    def get_mate(self) -> str:
         obj = self.s3_client.Object(self.bucket, 'mate/status.txt')
         return obj.get()['Body'].read().decode('utf-8')
+
+    def set_open(self, state: int):
+        obj = self.s3_client.Object(self.bucket, 'open.txt')
+        obj.put(Body=state)
+
+    def get_open(self) -> int:
+        obj = self.s3_client.Object(self.bucket, 'open.txt')
+        value = obj.get()['Body'].read().decode('utf-8')
+        return int(value) if value else STATE_UNKNOWN
+
+    def set_notification_listeners(self, listeners: List[str]):
+        obj = self.s3_client.Object(self.bucket, 'listeners.txt')
+        obj.put(Body="\n".join(listeners))
+
+    def get_notification_listeners(self) -> List[str]:
+        obj = self.s3_client.Object(self.bucket, 'listeners.txt')
+        value = obj.get()['Body'].read().decode('utf-8')
+        if value:
+            return value.splitlines()
+        else:
+            return []
 
 
 class FileStorage(Storage):
@@ -57,13 +114,37 @@ class FileStorage(Storage):
 
         :param path: Path to the directory that should be used.
         """
-        self.path = path
+        self.root_path = path
 
     def set_mate(self, text):
-        with open('{}/mate/status.txt'.format(self.path), 'w+') as file:
-            file.write(text)
+        self._write("mate/status.txt", text)
 
-    def get_mate(self):
-        with open('{}/mate/status.txt'.format(self.path), 'r') as file:
-            return file.read()
+    def get_mate(self) -> str:
+        return self._read('mate/status.txt')
 
+    def set_open(self, state: int):
+        self._write("open.txt", f"{state}")
+
+    def get_open(self) -> int:
+        value = self._read("open.txt")
+        return int(value) if value else STATE_UNKNOWN
+
+    def set_notification_listeners(self, listeners: List[str]):
+        self._write("listeners.txt", "\n".join(listeners))
+
+    def get_notification_listeners(self) -> List[str]:
+        value = self._read("listeners.txt")
+        return value.splitlines()
+
+    def _read(self, path: str) -> str or None:
+        path = Path(f'{self.root_path}/{path}')
+        if path.exists() and path.is_file():
+            with open(path, 'r') as file:
+                return file.read()
+        else:
+            return None
+
+    def _write(self, path: str, value: str):
+        path = Path(f'{self.root_path}/{path}')
+        with open(path, 'w+') as file:
+            file.write(value)

@@ -18,6 +18,7 @@
 
 import logging
 import os
+import sys
 import time
 
 import click
@@ -60,7 +61,7 @@ class FrundenBot:
 
         updater = Updater(token=token, use_context=True)
 
-        self.notifier = Notifier(updater.bot)
+        self.notifier = Notifier(updater.bot, storage)
 
         dispatcher = updater.dispatcher
         queue = updater.job_queue
@@ -168,6 +169,8 @@ class FrundenBot:
     def _callback_get_drinks(self, update: Update, context: CallbackContext):
         try:
             drinks = self.storage.get_mate()
+            if drinks is None:
+                raise AssertionError("No mate value in storage")
         except Exception as e:
             drinks = emojize(
                 'Uhm, das weiß ich nicht. :confused:', use_aliases=True)
@@ -265,10 +268,12 @@ class FrundenBot:
 @click.option('--s3-bucket', envvar='FRUNDE_S3_BUCKET', help='Name of the s3 bucket.')
 @click.option('--s3-key', envvar='FRUNDE_S3_KEY', help='Key ID of the S3 user.')
 @click.option('--s3-secret', envvar='FRUNDE_S3_SECRET', help='Secret of the S3 user.')
-@click.option('--file-path', envvar='FRUNDE_FILE_PATH', default='/var/frunde/', help='Path to store local data, if S3 is not used.')
+@click.option('--file-path', envvar='FRUNDE_FILE_PATH', default='/var/frunde/',
+              help='Path to store local data, if S3 is not used.')
 @click.option('--metrics-port', envvar='FRUNDE_METRICS_PORT', default=8000, help='Port to expose Prometheus metrics.',
               show_default=True)
-def cli(token, refresh_interval: int, s3_region_name: str, s3_bucket: str, s3_key: str, s3_secret: str, file_path: str, metrics_port: int):
+def cli(token, refresh_interval: int, s3_region_name: str, s3_bucket: str, s3_key: str, s3_secret: str, file_path: str,
+        metrics_port: int):
     """
     All options are also available as environment variables, e.g. "--refresh-interval=30" can be set by "export REFRESH_INTERVAL=30".
     """

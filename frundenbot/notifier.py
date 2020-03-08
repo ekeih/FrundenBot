@@ -1,7 +1,8 @@
 from emoji import emojize
-from telegram import ParseMode
+from telegram import ParseMode, Bot
 
 from frundenbot import STATE_OPEN, STATE_UNKNOWN, MESSAGE_OPEN
+from frundenbot.storage import Storage
 
 
 class Notifier:
@@ -9,20 +10,21 @@ class Notifier:
     Used to send notifications when the "open" status changes
     """
 
-    # set of chat_ids that have registered for a notification
-    chat_ids = set()
-    # the last
-    last_known_state = STATE_UNKNOWN
-
-    def __init__(self, bot):
+    def __init__(self, bot: Bot, storage: Storage):
         self._bot = bot
+        self._storage = storage
 
     def register(self, chat_id: str):
         """
         Registers a chat_id to be notified
         :param chat_id: chat id
         """
-        self.chat_ids.add(chat_id)
+        listeners = self._storage.get_notification_listeners()
+        listeners.append(chat_id)
+        self._storage.set_notification_listeners(listeners)
+
+    def unregister_all(self):
+        self._storage.set_notification_listeners([])
 
     def on_state(self, state: int):
         """
@@ -32,21 +34,26 @@ class Notifier:
         if state == STATE_UNKNOWN:
             return
 
-        if self.last_known_state == STATE_UNKNOWN:
-            self.last_known_state = state
-            return
-
-        if self.last_known_state != state == STATE_OPEN:
-            self._notify_all()
+        try:
+            old_state = self._storage.get_open()
+            if old_state == STATE_UNKNOWN:
+                # this will only happen once for a given storage
+                return
+            if old_state != state:
+                self._storage.set_open(state)
+                if state == STATE_OPEN:
+                    self._notify_all()
+        finally:
+            self._storage.set_open(state)
 
     def _notify_all(self):
         """
         Notifies all currently registered chats
         """
-        for chat_id in self.chat_ids:
+        for chat_id in self._storage.get_notification_listeners():
             self._bot.send_message(
                 chat_id=chat_id,
                 text=emojize(MESSAGE_OPEN, use_aliases=True),
                 parse_mode=ParseMode.MARKDOWN
             )
-        self.chat_ids.clear()
+        self.unregister_all()
