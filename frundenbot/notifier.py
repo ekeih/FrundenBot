@@ -20,11 +20,11 @@ class Notifier:
         :param chat_id: chat id
         """
         listeners = self._storage.get_notification_listeners()
-        listeners.append(f"{chat_id}")
+        listeners.update(f"{chat_id}")
         self._storage.set_notification_listeners(listeners)
 
     def unregister_all(self):
-        self._storage.set_notification_listeners([])
+        self._storage.set_notification_listeners(set())
 
     def on_state(self, state: int):
         """
