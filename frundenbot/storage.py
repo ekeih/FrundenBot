@@ -1,7 +1,12 @@
+import logging
 from pathlib import Path
 from typing import List
 
+from botocore.exceptions import ClientError
+
 from frundenbot import STATE_UNKNOWN
+
+LOGGER = logging.getLogger(__name__)
 
 
 class Storage:
@@ -74,33 +79,42 @@ class S3Storage(Storage):
         self.bucket = bucket
 
     def set_mate(self, text):
-        obj = self.s3_client.Object(self.bucket, 'mate/status.txt')
-        obj.put(Body=text)
+        self._write('mate/status.txt', text)
 
     def get_mate(self) -> str:
-        obj = self.s3_client.Object(self.bucket, 'mate/status.txt')
-        return obj.get()['Body'].read().decode('utf-8')
+        value = self._read('mate/status.txt')
+        return value if value else ""
 
     def set_open(self, state: int):
-        obj = self.s3_client.Object(self.bucket, 'open.txt')
-        obj.put(Body=state)
+        self._write('open.txt', f"{state}")
 
     def get_open(self) -> int:
-        obj = self.s3_client.Object(self.bucket, 'open.txt')
-        value = obj.get()['Body'].read().decode('utf-8')
+        value = self._read('open.txt')
         return int(value) if value else STATE_UNKNOWN
 
     def set_notification_listeners(self, listeners: List[str]):
-        obj = self.s3_client.Object(self.bucket, 'listeners.txt')
-        obj.put(Body="\n".join(listeners))
+        self._write('listeners.txt', "\n".join(listeners))
 
     def get_notification_listeners(self) -> List[str]:
-        obj = self.s3_client.Object(self.bucket, 'listeners.txt')
-        value = obj.get()['Body'].read().decode('utf-8')
+        value = self._read('listeners.txt')
         if value:
             return value.splitlines()
         else:
             return []
+
+    def _read(self, path: str) -> str or None:
+        obj = self.s3_client.Object(self.bucket, path)
+        try:
+            return obj.get()['Body'].read().decode('utf-8')
+        except ClientError as ex:
+            if ex.response['Error']['Code'] == 'NoSuchKey':
+                return None
+            else:
+                raise ex
+
+    def _write(self, path: str, value: str):
+        obj = self.s3_client.Object(self.bucket, path)
+        obj.put(Body=value)
 
 
 class FileStorage(Storage):
