@@ -14,13 +14,13 @@ class Notifier:
         self._bot = bot
         self._storage = storage
 
-    def register(self, chat_id: str):
+    def register(self, chat_id: int):
         """
         Registers a chat_id to be notified
         :param chat_id: chat id
         """
         listeners = self._storage.get_notification_listeners()
-        listeners.append(chat_id)
+        listeners.append(f"{chat_id}")
         self._storage.set_notification_listeners(listeners)
 
     def unregister_all(self):

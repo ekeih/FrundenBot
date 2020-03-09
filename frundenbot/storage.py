@@ -23,7 +23,7 @@ class Storage:
         """
         raise NotImplementedError()
 
-    def get_mate(self) -> str:
+    def get_mate(self) -> str or None:
         """
         Get the current availability of drinks.
 
@@ -81,9 +81,9 @@ class S3Storage(Storage):
     def set_mate(self, text):
         self._write('mate/status.txt', text)
 
-    def get_mate(self) -> str:
+    def get_mate(self) -> str or None:
         value = self._read('mate/status.txt')
-        return value if value else ""
+        return value
 
     def set_open(self, state: int):
         self._write('open.txt', f"{state}")
@@ -133,7 +133,7 @@ class FileStorage(Storage):
     def set_mate(self, text):
         self._write("mate/status.txt", text)
 
-    def get_mate(self) -> str:
+    def get_mate(self) -> str or None:
         return self._read('mate/status.txt')
 
     def set_open(self, state: int):
@@ -148,7 +148,10 @@ class FileStorage(Storage):
 
     def get_notification_listeners(self) -> List[str]:
         value = self._read("listeners.txt")
-        return value.splitlines()
+        if value:
+            return value.splitlines()
+        else:
+            return []
 
     def _read(self, path: str) -> str or None:
         path = Path(f'{self.root_path}/{path}').expanduser().absolute()
