@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import List, Set
+from typing import Set
 
 from botocore.exceptions import ClientError
 
@@ -92,7 +92,7 @@ class S3Storage(Storage):
         value = self._read('open.txt')
         return int(value) if value else STATE_UNKNOWN
 
-    def set_notification_listeners(self, listeners: List[str]):
+    def set_notification_listeners(self, listeners: Set[str]):
         self._write('listeners.txt', '\n'.join(listeners))
 
     def get_notification_listeners(self) -> Set[str]:
@@ -143,7 +143,7 @@ class FileStorage(Storage):
         value = self._read('open.txt')
         return int(value) if value else STATE_UNKNOWN
 
-    def set_notification_listeners(self, listeners: List[str]):
+    def set_notification_listeners(self, listeners: Set[str]):
         self._write('listeners.txt', '\n'.join(listeners))
 
     def get_notification_listeners(self) -> Set[str]:

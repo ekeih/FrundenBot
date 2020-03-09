@@ -20,7 +20,7 @@ class Notifier:
         :param chat_id: chat id
         """
         listeners = self._storage.get_notification_listeners()
-        listeners.update(f"{chat_id}")
+        listeners.add(f"{chat_id}")
         self._storage.set_notification_listeners(listeners)
 
     def unregister_all(self):
