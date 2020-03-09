@@ -28,11 +28,12 @@ from prometheus_client import Gauge, Summary, start_http_server
 from telegram import (InlineQueryResultArticle, InputTextMessageContent,
                       ParseMode, Update)
 from telegram.ext import (CallbackContext, CommandHandler, Filters,
-                          InlineQueryHandler, MessageHandler, RegexHandler,
-                          Updater)
+                          InlineQueryHandler, MessageHandler, Updater)
 from telegram_click import generate_command_list
 from telegram_click.decorator import command
 
+from frundenbot import STATE_CLOSED, STATE_OPEN, STATE_UNKNOWN, MESSAGE_OPEN
+from frundenbot.notifier import Notifier
 from frundenbot.storage import Storage
 
 cache = emojize('Sorry, ich weiß es nicht! :confused:', use_aliases=True)
@@ -46,9 +47,9 @@ logging.basicConfig(level=logging.INFO, format=logging_format)
 
 LOGGER = logging.getLogger(__name__)
 
-ADMIN = int(os.environ.get('TELEGRAM_BOT_ADMIN'))
-LIST_OF_ADMINS = [int(x)
-                  for x in os.environ.get('TELEGRAM_BOT_ADMINS').split(',')]
+LIST_OF_ADMINS = [
+    int(x) for x in os.environ.get('TELEGRAM_BOT_ADMINS').split(',')
+]
 
 
 class FrundenBot:
@@ -59,6 +60,9 @@ class FrundenBot:
             'frunde_status', '1 if Frunde is open,-1 on error, 0 otherwise')
 
         updater = Updater(token=token, use_context=True)
+
+        self.notifier = Notifier(updater.bot, storage)
+
         dispatcher = updater.dispatcher
         queue = updater.job_queue
         queue.run_repeating(self.refresh_cache,
@@ -76,6 +80,7 @@ class FrundenBot:
                                callback=self._callback_is_open),
                 CommandHandler(['mate', 'drinks'],
                                callback=self._callback_get_drinks),
+                CommandHandler('notify', callback=self._callback_notify),
                 CommandHandler('whoami', callback=self._callback_whoami),
                 CommandHandler('set_mate', callback=self._callback_set_drinks),
                 MessageHandler(Filters.text, callback=self._callback_is_open)
@@ -128,15 +133,31 @@ class FrundenBot:
     @command(name='open', description='Is the Freitagsrunde open right now?')
     def _callback_is_open(self, update: Update, context: CallbackContext):
         context.bot.sendMessage(chat_id=update.message.chat_id,
-                                text='{}\nÜbrigens kannst du mit /mate nachgucken, ob es noch Getränke gibt.'.format(cache))
+                                text='{}\nÜbrigens kannst du mit /mate nachgucken, ob es noch Getränke gibt.'.format(
+                                    cache))
 
-    WHOAMI_TIME = Summary('frunde_whoami_seconds',
-                          'Time spent executing /whoami handler')
+    NOTIFY_TIME = Summary('notify_seconds',
+                          'Time spent executing /notify handler')
+
+    @NOTIFY_TIME.time()
+    @command(name='notify', description='Get a notification when the Freitagsrunde opens up.')
+    def _callback_notify(self, update: Update, context: CallbackContext):
+        chat_id = update.effective_chat.id
+        self.notifier.register(chat_id)
+        context.bot.sendMessage(
+            chat_id=update.message.chat_id,
+            text=emojize(
+                "Wir benachrichtigen dich, sobald die Freitagsrunde wieder geöffnet hat :mailbox_with_mail:",
+                use_aliases=True)
+        )
+
+    WHOAMI_TIME = Summary('frunde_whoami_seconds', 'Time spent executing /whoami handler')
 
     @WHOAMI_TIME.time()
     def _callback_whoami(self, update: Update, context: CallbackContext):
-        context.bot.sendMessage(chat_id=update.message.chat_id, text='You are: {} ({})'.format(
-            update.message.from_user.name, update.message.chat_id))
+        context.bot.sendMessage(chat_id=update.message.chat_id,
+                                text='You are: {} ({})'.format(
+                                    update.message.from_user.name, update.message.chat_id))
         LOGGER.info('This is: {} ({})'.format(
             update.message.from_user.name, update.message.chat_id))
 
@@ -148,6 +169,8 @@ class FrundenBot:
     def _callback_get_drinks(self, update: Update, context: CallbackContext):
         try:
             drinks = self.storage.get_mate()
+            if drinks is None:
+                raise AssertionError("No mate value in storage")
         except Exception as e:
             drinks = emojize(
                 'Uhm, das weiß ich nicht. :confused:', use_aliases=True)
@@ -159,23 +182,27 @@ class FrundenBot:
 
     @SET_DRINKS.time()
     def _callback_set_drinks(self, update: Update, context: CallbackContext):
-        if update.message.chat_id in LIST_OF_ADMINS:
-            mate_message = ' '.join(context.args)
-            LOGGER.info('New mate message: {}'.format(mate_message))
-            try:
-                self.storage.set_mate('{}\n(Aktualisiert: {})'.format(mate_message, time.strftime('%d.%m.%Y um %H:%M')))
-                result = 'Neuer Matepegel:\n{}'.format(mate_message)
-            except Exception as e:
-                result = emojize(
-                    'Uhm, das hat nicht geklappt. :confused:', use_aliases=True)
-                LOGGER.error(e)
-            context.bot.sendMessage(
-                chat_id=update.message.chat_id, text=result)
-            context.bot.sendMessage(chat_id=ADMIN, text='Neuer Matepegel von {} ({}):\n{}'.format(
-                update.message.from_user.name, update.message.chat_id, result))
-        else:
+        if update.message.chat_id not in LIST_OF_ADMINS:
             context.bot.sendMessage(chat_id=update.message.chat_id, text=emojize(
                 ':poop: Nö :poop:', use_aliases=True))
+            return
+
+        mate_message = ' '.join(context.args)
+        LOGGER.info('New mate message: {}'.format(mate_message))
+        try:
+            self.storage.set_mate('{}\n(Aktualisiert: {})'.format(mate_message, time.strftime('%d.%m.%Y um %H:%M')))
+            result = 'Neuer Matepegel:\n{}'.format(mate_message)
+        except Exception as e:
+            result = emojize(
+                'Uhm, das hat nicht geklappt. :confused:', use_aliases=True)
+            LOGGER.error(e)
+        context.bot.sendMessage(
+            chat_id=update.message.chat_id, text=result)
+        for admin in LIST_OF_ADMINS:
+            context.bot.sendMessage(chat_id=admin,
+                                    text='Neuer Matepegel von {} ({}):\n{}'.format(
+                                        update.message.from_user.name,
+                                        update.message.chat_id, result))
 
     INLINE_TIME = Summary('frunde_inline_seconds',
                           'Time spent executing inline handler')
@@ -206,31 +233,48 @@ class FrundenBot:
             LOGGER.debug('Refresh cache')
             r = requests.get('https://watchyour.freitagsrunde.org')
             r.raise_for_status()
-            if 'Wir sind fuer dich da!' in r.text:
-                self.FRUNDE_OPEN.set(1)
-                cache = emojize(
-                    ':white_check_mark: Die Freitagsrunde ist offen!', use_aliases=True)
+            state = self._extract_state(r.text)
+            if state == STATE_OPEN:
+                cache = emojize(MESSAGE_OPEN, use_aliases=True)
             else:
-                self.FRUNDE_OPEN.set(0)
                 cache = emojize(
                     ':red_circle: Leider haben wir gerade zu.', use_aliases=True)
         except Exception as e:
-            self.FRUNDE_OPEN.set(-1)
+            state = STATE_UNKNOWN
             cache = emojize(
                 'Sorry, ich weiß es nicht! :confused:', use_aliases=True)
             LOGGER.error(e)
 
+        self.FRUNDE_OPEN.set(state)
+        self.notifier.on_state(state)
+
+    @staticmethod
+    def _extract_state(text) -> int:
+        """
+        Extracts the "open state" from the given text
+        :param text: text from watchyour.freitagsrunde
+        :return: state
+        """
+        if 'Wir sind fuer dich da!' in text:
+            return STATE_OPEN
+        else:
+            return STATE_CLOSED
+
 
 @click.command()
 @click.option('--token', envvar='FRUNDE_TOKEN', help='Telegram bot token.', required=True)
-@click.option('--refresh-interval', envvar='FRUNDE_REFRESH_INTERVAL', default=60, help='Interval in seconds in which the bot should check if the Freitagsrunde is open.', show_default=True)
+@click.option('--refresh-interval', envvar='FRUNDE_REFRESH_INTERVAL', default=60,
+              help='Interval in seconds in which the bot should check if the Freitagsrunde is open.', show_default=True)
 @click.option('--s3-region-name', envvar='FRUNDE_S3_REGION_NAME', help='Region name of the s3 bucket.')
 @click.option('--s3-bucket', envvar='FRUNDE_S3_BUCKET', help='Name of the s3 bucket.')
 @click.option('--s3-key', envvar='FRUNDE_S3_KEY', help='Key ID of the S3 user.')
 @click.option('--s3-secret', envvar='FRUNDE_S3_SECRET', help='Secret of the S3 user.')
-@click.option('--file-path', envvar='FRUNDE_FILE_PATH', default='/var/frunde/', help='Path to store local data, if S3 is not used.')
-@click.option('--metrics-port', envvar='FRUNDE_METRICS_PORT', default=8000, help='Port to expose Prometheus metrics.', show_default=True)
-def cli(token, refresh_interval: int, s3_region_name: str, s3_bucket: str, s3_key: str, s3_secret: str, file_path: str, metrics_port: int):
+@click.option('--file-path', envvar='FRUNDE_FILE_PATH', default='/var/frunde/',
+              help='Path to store local data, if S3 is not used.')
+@click.option('--metrics-port', envvar='FRUNDE_METRICS_PORT', default=8000, help='Port to expose Prometheus metrics.',
+              show_default=True)
+def cli(token, refresh_interval: int, s3_region_name: str, s3_bucket: str, s3_key: str, s3_secret: str, file_path: str,
+        metrics_port: int):
     """
     All options are also available as environment variables, e.g. "--refresh-interval=30" can be set by "export REFRESH_INTERVAL=30".
     """
@@ -247,3 +291,7 @@ def cli(token, refresh_interval: int, s3_region_name: str, s3_bucket: str, s3_ke
 
     start_http_server(metrics_port)
     FrundenBot(token=token, refresh_interval=refresh_interval, storage=storage)
+
+
+if __name__ == '__main__':
+    cli()
