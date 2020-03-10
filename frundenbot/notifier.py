@@ -1,8 +1,12 @@
+import logging
+
 from emoji import emojize
 from telegram import ParseMode, Bot
 
 from frundenbot import STATE_OPEN, STATE_UNKNOWN, MESSAGE_OPEN
 from frundenbot.storage import Storage
+
+LOGGER = logging.getLogger(__name__)
 
 
 class Notifier:
@@ -51,9 +55,13 @@ class Notifier:
         Notifies all currently registered chats
         """
         for chat_id in self._storage.get_notification_listeners():
-            self._bot.send_message(
-                chat_id=chat_id,
-                text=emojize(MESSAGE_OPEN, use_aliases=True),
-                parse_mode=ParseMode.MARKDOWN
-            )
+            try:
+                self._bot.send_message(
+                    chat_id=chat_id,
+                    text=emojize(MESSAGE_OPEN, use_aliases=True),
+                    parse_mode=ParseMode.MARKDOWN
+                )
+            except Exception as e:
+                LOGGER.error(e)
+
         self.unregister_all()
