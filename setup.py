@@ -4,6 +4,7 @@ Setup to install FrundenBot as a Python package.
 
 from datetime import datetime
 from os import getenv
+
 from setuptools import find_packages, setup
 
 
@@ -33,8 +34,6 @@ setup(
     license='AGPLv3+',
     classifiers=[
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
         'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)'
     ],
     python_requires='>=3.7',
