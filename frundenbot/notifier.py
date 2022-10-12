@@ -1,9 +1,9 @@
 import logging
 
 from emoji import emojize
-from telegram import ParseMode, Bot
+from telegram import Bot, ParseMode
 
-from frundenbot import STATE_OPEN, STATE_UNKNOWN, MESSAGE_OPEN
+from frundenbot import MESSAGE_OPEN, STATE_OPEN, STATE_UNKNOWN
 from frundenbot.storage import Storage
 
 LOGGER = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ class Notifier:
             try:
                 self._bot.send_message(
                     chat_id=chat_id,
-                    text=emojize(MESSAGE_OPEN, use_aliases=True),
+                    text=emojize(MESSAGE_OPEN, language='alias'),
                     parse_mode=ParseMode.MARKDOWN
                 )
             except Exception as e:

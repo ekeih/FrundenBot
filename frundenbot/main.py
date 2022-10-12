@@ -32,11 +32,11 @@ from telegram.ext import (CallbackContext, CommandHandler, Filters,
 from telegram_click import generate_command_list
 from telegram_click.decorator import command
 
-from frundenbot import STATE_CLOSED, STATE_OPEN, STATE_UNKNOWN, MESSAGE_OPEN
+from frundenbot import MESSAGE_OPEN, STATE_CLOSED, STATE_OPEN, STATE_UNKNOWN
 from frundenbot.notifier import Notifier
 from frundenbot.storage import Storage
 
-cache = emojize('Sorry, ich weiß es nicht! :confused:', use_aliases=True)
+cache = emojize('Sorry, ich weiß es nicht! :confused:', language='alias')
 
 logging.getLogger('JobQueue').setLevel(logging.INFO)
 logging.getLogger('telegram').setLevel(logging.INFO)
@@ -148,7 +148,7 @@ class FrundenBot:
             chat_id=update.message.chat_id,
             text=emojize(
                 "Wir benachrichtigen dich, sobald die Freitagsrunde wieder geöffnet hat :mailbox_with_mail:",
-                use_aliases=True)
+                language='alias')
         )
 
     WHOAMI_TIME = Summary('frunde_whoami_seconds', 'Time spent executing /whoami handler')
@@ -173,7 +173,7 @@ class FrundenBot:
                 raise AssertionError("No mate value in storage")
         except Exception as e:
             drinks = emojize(
-                'Uhm, das weiß ich nicht. :confused:', use_aliases=True)
+                'Uhm, das weiß ich nicht. :confused:', language='alias')
             LOGGER.error(e)
         context.bot.sendMessage(chat_id=update.message.chat_id, text=drinks)
 
@@ -184,7 +184,7 @@ class FrundenBot:
     def _callback_set_drinks(self, update: Update, context: CallbackContext):
         if update.message.chat_id not in LIST_OF_ADMINS:
             context.bot.sendMessage(chat_id=update.message.chat_id, text=emojize(
-                ':poop: Nö :poop:', use_aliases=True))
+                ':poop: Nö :poop:', language='alias'))
             return
 
         mate_message = ' '.join(context.args)
@@ -194,7 +194,7 @@ class FrundenBot:
             result = 'Neuer Matepegel:\n{}'.format(mate_message)
         except Exception as e:
             result = emojize(
-                'Uhm, das hat nicht geklappt. :confused:', use_aliases=True)
+                'Uhm, das hat nicht geklappt. :confused:', language='alias')
             LOGGER.error(e)
         context.bot.sendMessage(
             chat_id=update.message.chat_id, text=result)
@@ -235,14 +235,14 @@ class FrundenBot:
             r.raise_for_status()
             state = self._extract_state(r.text)
             if state == STATE_OPEN:
-                cache = emojize(MESSAGE_OPEN, use_aliases=True)
+                cache = emojize(MESSAGE_OPEN, language='alias')
             else:
                 cache = emojize(
-                    ':red_circle: Leider haben wir gerade zu.', use_aliases=True)
+                    ':red_circle: Leider haben wir gerade zu.', language='alias')
         except Exception as e:
             state = STATE_UNKNOWN
             cache = emojize(
-                'Sorry, ich weiß es nicht! :confused:', use_aliases=True)
+                'Sorry, ich weiß es nicht! :confused:', language='alias')
             LOGGER.error(e)
 
         self.FRUNDE_OPEN.set(state)
