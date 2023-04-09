@@ -2,18 +2,11 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:base",
-    ":rebaseStalePrs"
+    ":prHourlyLimitNone",
+    ":rebaseStalePrs",
+    ":label(renovate)",
+    ":assignee(ekeih)",
+    ":automergeMinor"
   ],
-  "platformAutomerge": true,
-  "packageRules": [
-    {
-      "matchUpdateTypes": ["patch"],
-      "automerge": true
-    },
-    {
-      "matchPackageNames": ["boto3"],
-      "matchUpdateTypes": ["patch", "minor"],
-      "automerge": true
-    }
-  ]
+  "platformAutomerge": true
 }
