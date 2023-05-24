@@ -1,6 +1,6 @@
 boto3==1.26.139
 click==8.1.3
-emoji==2.2.0
+emoji==2.4.0
 prometheus-client==0.16.0
 python-telegram-bot==13.15
 requests==2.31.0
