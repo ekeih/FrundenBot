@@ -1,4 +1,4 @@
-boto3==1.28.8
+boto3==1.28.9
 click==8.1.6
 emoji==2.6.0
 prometheus-client==0.17.1
