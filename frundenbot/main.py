@@ -18,6 +18,7 @@
 
 import logging
 import os
+import string
 import sys
 import time
 
@@ -231,7 +232,7 @@ class FrundenBot:
         global cache
         try:
             LOGGER.debug('Refresh cache')
-            r = requests.get('https://watchyour.freitagsrunde.org')
+            r = requests.get('https://watchyour.freitagsrunde.org/status')
             r.raise_for_status()
             state = self._extract_state(r.text)
             if state == STATE_OPEN:
@@ -255,10 +256,12 @@ class FrundenBot:
         :param text: text from watchyour.freitagsrunde
         :return: state
         """
-        if 'Wir sind fuer dich da!' in text:
+        if text.strip() == "OPEN":
             return STATE_OPEN
-        else:
+        elif text.strip() == "CLOSED":
             return STATE_CLOSED
+        else:
+            return STATE_UNKNOWN
 
 
 @click.command()
