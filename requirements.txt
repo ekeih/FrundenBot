@@ -5,3 +5,4 @@ prometheus-client==0.20.0
 python-telegram-bot==13.15
 requests==2.31.0
 telegram-click==5.0.1
+urllib3==1.26.15
