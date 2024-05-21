@@ -3,5 +3,5 @@ click==8.1.7
 emoji==2.12.1
 prometheus-client==0.20.0
 python-telegram-bot==13.15
-requests==2.32.0
+requests==2.32.1
 telegram-click==5.0.1
